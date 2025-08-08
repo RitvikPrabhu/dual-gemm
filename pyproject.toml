@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools", "wheel", "torch", "numpy"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "llama4-dualgemm"
+version = "0.1.0"
+dependencies = ["torch"]
+
+[tool.setuptools]
+packages = ["llama4_dualgemm"]
+
+[tool.setuptools.ext_modules]
+
