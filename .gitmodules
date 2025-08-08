@@ -1,0 +1,10 @@
+[submodule "fairscale"]
+	path = fairscale
+	url = git@github.com:RitvikPrabhu/fairscale.git
+[submodule "llama-models"]
+	path = llama-models
+	url = git@github.com:RitvikPrabhu/llama-models.git
+[submodule "external/fairscale"]
+	branch = main
+[submodule "external/llama"]
+	branch = main
