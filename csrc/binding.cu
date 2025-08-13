@@ -1,4 +1,3 @@
-// csrc/binding.cu
 #include <torch/extension.h>
 #include <ATen/cuda/CUDAContext.h>
 #include <cuda_runtime.h>
@@ -12,7 +11,6 @@
 #include "cutlass/gemm/gemm.h"
 #include "cutlass/epilogue/thread/linear_combination.h"
 
-// Your project headers
 #include "device/dual_gemm.h"
 #include "thread/left_silu_and_mul.h"
 #include "dual_gemm_common.h"
@@ -137,10 +135,10 @@ run_dual_gemm_typed(const at::Tensor& x_in,
   cutlass::TensorRef<Element      , RM> refD1(D1_ptr, RM::Stride(ldd));
   cutlass::TensorRef<Element      , RM> refD2(D2_ptr, RM::Stride(ldd));
 
-  cutlass::gemm::GemmCoord problem_size(
+  cutlass::gemm::GemmCoord problem_size{
       static_cast<int>(M),
       static_cast<int>(N),
-      static_cast<int>(K));
+      static_cast<int>(K)};
 
   using Params0 = typename EpilogueOutputOp0::Params;
   using Params1 = typename EpilogueOutputOp1::Params;
@@ -184,6 +182,236 @@ run_dual_gemm_typed(const at::Tensor& x_in,
   return std::make_tuple(d0, d1, d2);
 }
 
+template <typename Element>
+static std::tuple<at::Tensor, at::Tensor, at::Tensor>
+run_dual_gemm_batched_typed(const at::Tensor& x_in,   
+                            const at::Tensor& w1_in,  
+                            const at::Tensor& w2_in)  
+{
+  using ElementOperandA    = Element;
+  using ElementOperandB    = Element;
+  using ElementOutput      = Element;
+  using ElementAccumulator = float;
+  using ElementCompute     = float;
+
+  static constexpr int kVec = 128 / cutlass::sizeof_bits<ElementOutput>::value;
+
+  using EpilogueOutputOp0 = cutlass::epilogue::thread::LinearCombination<
+      ElementOutput, kVec, ElementAccumulator, ElementCompute,
+      cutlass::epilogue::thread::ScaleType::Nothing>;
+  using EpilogueOutputOp1 = EpilogueOutputOp0;
+  using EpilogueOutputOp2 = cutlass::epilogue::thread::LeftSiLUAndMul<
+      ElementOutput, kVec, ElementOutput, ElementCompute>;
+
+  using InstrShape = InstrShapeFor<Element>;
+
+  using DualGemmT = cutlass::gemm::device::DualGemm<
+      ElementOperandA, RM,
+      ElementOperandB, RM,
+                       RM,
+      ElementOutput,   RM,
+      ElementAccumulator,
+      cutlass::arch::OpClassTensorOp, ArchTag,
+      ThreadblockShape, WarpShape, InstrShape,
+      EpilogueOutputOp0, EpilogueOutputOp1, EpilogueOutputOp2,
+      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<1>,
+      kStages, kStoreD0, kStoreD1, kSplitKSerial>;
+
+  TORCH_CHECK(x_in.dim()==3 && w1_in.dim()==3 && w2_in.dim()==3,
+              "expected x[B,M,K], w1[B,K,N], w2[B,K,N]");
+
+  using AT = typename AtenScalar<Element>::type;
+
+  at::Tensor x  = x_in.contiguous();
+  at::Tensor b0 = w1_in.contiguous();
+  at::Tensor b1 = w2_in.contiguous();
+
+  const int64_t B = x.size(0);
+  const int64_t M = x.size(1);
+  const int64_t K = x.size(2);
+  const int64_t N = b0.size(2);
+
+  at::Tensor d0 = at::empty({B, M, N}, x.options());
+  at::Tensor d1 = at::empty({B, M, N}, x.options());
+  at::Tensor d2 = at::empty({B, M, N}, x.options());
+  at::Tensor c0 = at::empty({B, M, N}, x.options());
+  at::Tensor c1 = at::empty({B, M, N}, x.options());
+
+  int lda  = static_cast<int>(x.stride(1));   
+  int ldb0 = static_cast<int>(b0.stride(1));  
+  int ldb1 = static_cast<int>(b1.stride(1));  
+  int ldc  = static_cast<int>(d0.stride(1));  
+  int ldd  = ldc;
+
+  int64_t bsA  = x.stride(0);   
+  int64_t bsB0 = b0.stride(0);  
+  int64_t bsB1 = b1.stride(0);  
+  int64_t bsC  = d0.stride(0);  
+  int64_t bsD  = d0.stride(0);  
+
+  auto A_ptr  = reinterpret_cast<Element const*>(x.data_ptr<AT>());
+  auto B0_ptr = reinterpret_cast<Element const*>(b0.data_ptr<AT>());
+  auto B1_ptr = reinterpret_cast<Element const*>(b1.data_ptr<AT>());
+  auto C0_ptr = reinterpret_cast<Element const*>(c0.data_ptr<AT>());
+  auto C1_ptr = reinterpret_cast<Element const*>(c1.data_ptr<AT>());
+  auto D0_ptr = reinterpret_cast<Element      *>(d0.data_ptr<AT>());
+  auto D1_ptr = reinterpret_cast<Element      *>(d1.data_ptr<AT>());
+  auto D2_ptr = reinterpret_cast<Element      *>(d2.data_ptr<AT>());
+
+  cutlass::TensorRef<Element const, RM> refA (A_ptr,  RM::Stride(lda));
+  cutlass::TensorRef<Element const, RM> refB0(B0_ptr, RM::Stride(ldb0));
+  cutlass::TensorRef<Element const, RM> refB1(B1_ptr, RM::Stride(ldb1));
+  cutlass::TensorRef<Element const, RM> refC0(C0_ptr, RM::Stride(ldc));
+  cutlass::TensorRef<Element const, RM> refC1(C1_ptr, RM::Stride(ldc));
+  cutlass::TensorRef<Element      , RM> refD0(D0_ptr, RM::Stride(ldd));
+  cutlass::TensorRef<Element      , RM> refD1(D1_ptr, RM::Stride(ldd));
+  cutlass::TensorRef<Element      , RM> refD2(D2_ptr, RM::Stride(ldd));
+
+  cutlass::gemm::GemmCoord problem_size{int(M), int(N), int(K)};
+
+  typename EpilogueOutputOp0::Params ep0(ElementCompute(1), ElementCompute(0));
+  typename EpilogueOutputOp1::Params ep1(ElementCompute(1), ElementCompute(0));
+  typename EpilogueOutputOp2::Params ep2;
+
+  typename DualGemmT::Arguments args(
+      cutlass::gemm::DualGemmMode::kBatched,
+      problem_size,
+      refA, refB0, refC0, refD0,
+      refB1, refC1, refD1, refD2,
+      ep0, ep1, ep2,
+      1,
+      int(B),
+      bsA, bsB0, bsB1, bsC, bsD);
+
+  DualGemmT op;
+  TORCH_CHECK(op.can_implement(args) == cutlass::Status::kSuccess,
+              "DualGemm(batched): unsupported configuration");
+
+  size_t ws_bytes = DualGemmT::get_workspace_size(args);
+  at::Tensor wbuf = (ws_bytes ? at::empty({(long)ws_bytes}, x.options().dtype(at::kByte)) : at::Tensor());
+
+  cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+  auto st = op(args, ws_bytes ? wbuf.data_ptr() : nullptr, stream);
+  TORCH_CHECK(st == cutlass::Status::kSuccess, "DualGemm(batched) run failed");
+
+  return std::make_tuple(d0, d1, d2);
+}
+
+template <typename Element>
+static std::tuple<at::Tensor, at::Tensor, at::Tensor>
+run_dual_gemm_broadcast_typed(const at::Tensor& x_in,   
+                              const at::Tensor& w1_in,  
+                              const at::Tensor& w2_in)  
+{
+  using ElementOperandA    = Element;
+  using ElementOperandB    = Element;
+  using ElementOutput      = Element;
+  using ElementAccumulator = float;
+  using ElementCompute     = float;
+
+  static constexpr int kVec = 128 / cutlass::sizeof_bits<ElementOutput>::value;
+
+  using EpilogueOutputOp0 = cutlass::epilogue::thread::LinearCombination<
+      ElementOutput, kVec, ElementAccumulator, ElementCompute,
+      cutlass::epilogue::thread::ScaleType::Nothing>;
+  using EpilogueOutputOp1 = EpilogueOutputOp0;
+  using EpilogueOutputOp2 = cutlass::epilogue::thread::LeftSiLUAndMul<
+      ElementOutput, kVec, ElementOutput, ElementCompute>;
+
+  using InstrShape = InstrShapeFor<Element>;
+
+  using DualGemmT = cutlass::gemm::device::DualGemm<
+      ElementOperandA, RM,
+      ElementOperandB, RM,
+                       RM,
+      ElementOutput,   RM,
+      ElementAccumulator,
+      cutlass::arch::OpClassTensorOp, ArchTag,
+      ThreadblockShape, WarpShape, InstrShape,
+      EpilogueOutputOp0, EpilogueOutputOp1, EpilogueOutputOp2,
+      cutlass::gemm::threadblock::GemmIdentityThreadblockSwizzle<1>,
+      kStages, kStoreD0, kStoreD1, kSplitKSerial>;
+
+  TORCH_CHECK(x_in.dim()==3 && w1_in.dim()==3 && w2_in.dim()==2,
+              "expected x[B,M,K], w1[B,K,N], w2[K,N]");
+
+  using AT = typename AtenScalar<Element>::type;
+
+  at::Tensor x  = x_in.contiguous();
+  at::Tensor b0 = w1_in.contiguous();
+  at::Tensor b1 = w2_in.contiguous();
+
+  const int64_t B = x.size(0);
+  const int64_t M = x.size(1);
+  const int64_t K = x.size(2);
+  const int64_t N = b0.size(2);
+
+  at::Tensor d0 = at::empty({B, M, N}, x.options());
+  at::Tensor d1 = at::empty({B, M, N}, x.options());
+  at::Tensor d2 = at::empty({B, M, N}, x.options());
+  at::Tensor c0 = at::empty({B, M, N}, x.options());
+  at::Tensor c1 = at::empty({B, M, N}, x.options());
+
+  int lda  = static_cast<int>(x.stride(1));   
+  int ldb0 = static_cast<int>(b0.stride(1));  
+  int ldb1 = static_cast<int>(b1.stride(0));  
+  int ldc  = static_cast<int>(d0.stride(1));  
+  int ldd  = ldc;
+
+  int64_t bsA  = x.stride(0);
+  int64_t bsB0 = b0.stride(0);
+  int64_t bsB1 = 0;
+  int64_t bsC  = d0.stride(0);
+  int64_t bsD  = d0.stride(0);
+
+  auto A_ptr  = reinterpret_cast<Element const*>(x.data_ptr<AT>());
+  auto B0_ptr = reinterpret_cast<Element const*>(b0.data_ptr<AT>());
+  auto B1_ptr = reinterpret_cast<Element const*>(b1.data_ptr<AT>());
+  auto C0_ptr = reinterpret_cast<Element const*>(c0.data_ptr<AT>());
+  auto C1_ptr = reinterpret_cast<Element const*>(c1.data_ptr<AT>());
+  auto D0_ptr = reinterpret_cast<Element      *>(d0.data_ptr<AT>());
+  auto D1_ptr = reinterpret_cast<Element      *>(d1.data_ptr<AT>());
+  auto D2_ptr = reinterpret_cast<Element      *>(d2.data_ptr<AT>());
+
+  cutlass::TensorRef<Element const, RM> refA (A_ptr,  RM::Stride(lda));
+  cutlass::TensorRef<Element const, RM> refB0(B0_ptr, RM::Stride(ldb0));
+  cutlass::TensorRef<Element const, RM> refB1(B1_ptr, RM::Stride(ldb1));
+  cutlass::TensorRef<Element const, RM> refC0(C0_ptr, RM::Stride(ldc));
+  cutlass::TensorRef<Element const, RM> refC1(C1_ptr, RM::Stride(ldc));
+  cutlass::TensorRef<Element      , RM> refD0(D0_ptr, RM::Stride(ldd));
+  cutlass::TensorRef<Element      , RM> refD1(D1_ptr, RM::Stride(ldd));
+  cutlass::TensorRef<Element      , RM> refD2(D2_ptr, RM::Stride(ldd));
+
+  cutlass::gemm::GemmCoord problem_size{int(M), int(N), int(K)};
+
+  typename EpilogueOutputOp0::Params ep0(ElementCompute(1), ElementCompute(0));
+  typename EpilogueOutputOp1::Params ep1(ElementCompute(1), ElementCompute(0));
+  typename EpilogueOutputOp2::Params ep2;
+
+  typename DualGemmT::Arguments args(
+      cutlass::gemm::DualGemmMode::kBatched,  
+      problem_size,
+      refA, refB0, refC0, refD0,
+      refB1, refC1, refD1, refD2,
+      ep0, ep1, ep2,
+      1,
+      int(B),
+      bsA, bsB0, bsB1, bsC, bsD);
+
+  DualGemmT op;
+  TORCH_CHECK(op.can_implement(args) == cutlass::Status::kSuccess,
+              "DualGemm(broadcast B1): unsupported configuration");
+
+  size_t ws_bytes = DualGemmT::get_workspace_size(args);
+  at::Tensor wbuf = (ws_bytes ? at::empty({(long)ws_bytes}, x.options().dtype(at::kByte)) : at::Tensor());
+
+  cudaStream_t stream = at::cuda::getCurrentCUDAStream();
+  auto st = op(args, ws_bytes ? wbuf.data_ptr() : nullptr, stream);
+  TORCH_CHECK(st == cutlass::Status::kSuccess, "DualGemm(broadcast B1) run failed");
+
+  return std::make_tuple(d0, d1, d2);
+}
+
 std::tuple<at::Tensor, at::Tensor, at::Tensor>
 dual_gemm_forward(const at::Tensor& x_in,
                   const at::Tensor& w1_in,
@@ -219,13 +447,87 @@ dual_gemm_forward_infer(const at::Tensor& x_in,
   return dual_gemm_forward(x_in, w1_in, w2_in, c10::nullopt);
 }
 
-PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("dual_gemm_forward",
-        &dual_gemm_forward_infer,
-        "Fused Dual-GEMM + SiLU*Mul (infer dtype from x: fp16/bf16/fp32)");
+std::tuple<at::Tensor, at::Tensor, at::Tensor>
+dual_gemm_batched_forward(const at::Tensor& x_in,
+                          const at::Tensor& w1_in,
+                          const at::Tensor& w2_in,
+                          c10::optional<at::ScalarType> dtype_opt)
+{
+  TORCH_CHECK(x_in.is_cuda() && w1_in.is_cuda() && w2_in.is_cuda(), "All tensors must be CUDA");
+  at::ScalarType want = dtype_opt.has_value() ? *dtype_opt : x_in.scalar_type();
+  TORCH_CHECK(want == at::kHalf || want == at::kBFloat16 || want == at::kFloat,
+              "dtype must be one of {float16, bfloat16, float32}");
 
-  m.def("dual_gemm_forward",
-        &dual_gemm_forward,
-        "Fused Dual-GEMM + SiLU*Mul (explicit dtype: torch.half/torch.bfloat16/torch.float32)");
+  at::Tensor x  = (x_in.scalar_type()==want)  ? x_in  : x_in.to(want);
+  at::Tensor w1 = (w1_in.scalar_type()==want) ? w1_in : w1_in.to(want);
+  at::Tensor w2 = (w2_in.scalar_type()==want) ? w2_in : w2_in.to(want);
+
+  TORCH_CHECK(x.dim()==3 && w1.dim()==3 && w2.dim()==3,
+              "expected x[B,M,K], w1[B,K,N], w2[B,K,N]");
+
+  if (want == at::kHalf) {
+    return run_dual_gemm_batched_typed<cutlass::half_t>(x, w1, w2);
+  } else if (want == at::kBFloat16) {
+    return run_dual_gemm_batched_typed<cutlass::bfloat16_t>(x, w1, w2);
+  } else {
+    return run_dual_gemm_batched_typed<float>(x, w1, w2);
+  }
 }
 
+std::tuple<at::Tensor, at::Tensor, at::Tensor>
+dual_gemm_batched_forward_infer(const at::Tensor& x_in,
+                                const at::Tensor& w1_in,
+                                const at::Tensor& w2_in)
+{
+  return dual_gemm_batched_forward(x_in, w1_in, w2_in, c10::nullopt);
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor>
+dual_gemm_broadcast_forward(const at::Tensor& x_in,
+                            const at::Tensor& w1_in,
+                            const at::Tensor& w2_in,
+                            c10::optional<at::ScalarType> dtype_opt)
+{
+  TORCH_CHECK(x_in.is_cuda() && w1_in.is_cuda() && w2_in.is_cuda(), "All tensors must be CUDA");
+  at::ScalarType want = dtype_opt.has_value() ? *dtype_opt : x_in.scalar_type();
+  TORCH_CHECK(want == at::kHalf || want == at::kBFloat16 || want == at::kFloat,
+              "dtype must be one of {float16, bfloat16, float32}");
+
+  at::Tensor x  = (x_in.scalar_type()==want)  ? x_in  : x_in.to(want);
+  at::Tensor w1 = (w1_in.scalar_type()==want) ? w1_in : w1_in.to(want);
+  at::Tensor w2 = (w2_in.scalar_type()==want) ? w2_in : w2_in.to(want);
+
+  TORCH_CHECK(x.dim()==3 && w1.dim()==3 && w2.dim()==2,
+              "expected x[B,M,K], w1[B,K,N], w2[K,N]");
+
+  if (want == at::kHalf) {
+    return run_dual_gemm_broadcast_typed<cutlass::half_t>(x, w1, w2);
+  } else if (want == at::kBFloat16) {
+    return run_dual_gemm_broadcast_typed<cutlass::bfloat16_t>(x, w1, w2);
+  } else {
+    return run_dual_gemm_broadcast_typed<float>(x, w1, w2);
+  }
+}
+
+std::tuple<at::Tensor, at::Tensor, at::Tensor>
+dual_gemm_broadcast_forward_infer(const at::Tensor& x_in,
+                                  const at::Tensor& w1_in,
+                                  const at::Tensor& w2_in)
+{
+  return dual_gemm_broadcast_forward(x_in, w1_in, w2_in, c10::nullopt);
+}
+
+PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
+  m.def("dual_gemm_forward", &dual_gemm_forward,
+        "Fused Dual-GEMM + SiLU*Mul (x[M,K], w1[K,N], w2[K,N], dtype=optional)");
+
+  m.def("dual_gemm_batched_forward", &dual_gemm_batched_forward,
+        "Batched fused Dual-GEMM (x[B,M,K], w1[B,K,N], w2[B,K,N], dtype=optional)");
+  m.def("dual_gemm_batched_forward_infer", &dual_gemm_batched_forward_infer,
+        "Batched fused Dual-GEMM (dtype inferred from x)");
+
+  m.def("dual_gemm_broadcast_forward", &dual_gemm_broadcast_forward,
+        "Batched fused Dual-GEMM with B1 broadcast (x[B,M,K], w1[B,K,N], w2[K,N], dtype=optional)");
+  m.def("dual_gemm_broadcast_forward_infer", &dual_gemm_broadcast_forward_infer,
+        "Batched fused Dual-GEMM with B1 broadcast (dtype inferred from x)");
+}
