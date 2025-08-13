@@ -51,7 +51,11 @@ D2 = element_wise(D0, D1)
 #include "cutlass/epilogue/thread/linear_combination_relu.h"
 #include "cutlass/epilogue/threadblock/default_epilogue_tensor_op.h"
 
+#if defined(CUTLASS_ARCH_SM90_SUPPORTED)
+#include "../dual_gemm_hopper_optimised.h"
+#else
 #include "../kernel/dual_gemm.h"
+#endif
 #include "../dual_gemm_common.h"
 
 ////////////////////////////////////////////////////////////////////////////////
