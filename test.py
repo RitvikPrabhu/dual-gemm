@@ -35,16 +35,16 @@ def run_case_single(B: int, D: int, H: int, dtype: torch.dtype, dispatch: str):
     w2 = torch.randn(D, H, device=device, dtype=dtype)
 
     if dispatch == "explicit":
-        _ = _C.dual_gemm_forward(x, w1, w2, dtype)
+        _ = _C.dual_gemm_forward(x, w1, w2, False, False, dtype)
     else:
-        _ = _C.dual_gemm_forward(x, w1, w2, None)
+        _ = _C.dual_gemm_forward_infer(x, w1, w2, False, False)
     torch.cuda.synchronize()
 
     with profile(activities=[ProfilerActivity.CUDA]) as prof:
         if dispatch == "explicit":
-            d0, d1, d2 = _C.dual_gemm_forward(x, w1, w2, dtype)
+            d0, d1, d2 = _C.dual_gemm_forward(x, w1, w2, True, True, dtype)
         else:
-            d0, d1, d2 = _C.dual_gemm_forward(x, w1, w2, None)
+            d0, d1, d2 = _C.dual_gemm_forward_infer(x, w1, w2, True, True)
         torch.cuda.synchronize()
 
     for name, t in (("d0", d0), ("d1", d1), ("d2", d2)):
@@ -96,16 +96,16 @@ def run_case_batched(B: int, D: int, H: int, dtype: torch.dtype, dispatch: str):
     w2 = torch.randn(B, D, H, device=device, dtype=dtype)
 
     if dispatch == "explicit":
-        _ = _C.dual_gemm_batched_forward(x, w1, w2, dtype)
+        _ = _C.dual_gemm_batched_forward(x, w1, w2, False, False, dtype)
     else:
-        _ = _C.dual_gemm_batched_forward(x, w1, w2, None)
+        _ = _C.dual_gemm_batched_forward_infer(x, w1, w2, False, False)
     torch.cuda.synchronize()
 
     with profile(activities=[ProfilerActivity.CUDA]) as prof:
         if dispatch == "explicit":
-            d0, d1, d2 = _C.dual_gemm_batched_forward(x, w1, w2, dtype)
+            d0, d1, d2 = _C.dual_gemm_batched_forward(x, w1, w2, True, True, dtype)
         else:
-            d0, d1, d2 = _C.dual_gemm_batched_forward(x, w1, w2, None)
+            d0, d1, d2 = _C.dual_gemm_batched_forward_infer(x, w1, w2, True, True)
         torch.cuda.synchronize()
 
     for name, t in (("d0", d0), ("d1", d1), ("d2", d2)):
@@ -155,16 +155,16 @@ def run_case_broadcast(B: int, D: int, H: int, dtype: torch.dtype, dispatch: str
     w2 = torch.randn(D, H, device=device, dtype=dtype)
 
     if dispatch == "explicit":
-        _ = _C.dual_gemm_broadcast_forward(x, w1, w2, dtype)
+        _ = _C.dual_gemm_broadcast_forward(x, w1, w2, False, False, dtype)
     else:
-        _ = _C.dual_gemm_broadcast_forward(x, w1, w2, None)
+        _ = _C.dual_gemm_broadcast_forward_infer(x, w1, w2, False, False)
     torch.cuda.synchronize()
 
     with profile(activities=[ProfilerActivity.CUDA]) as prof:
         if dispatch == "explicit":
-            d0, d1, d2 = _C.dual_gemm_broadcast_forward(x, w1, w2, dtype)
+            d0, d1, d2 = _C.dual_gemm_broadcast_forward(x, w1, w2, True, True, dtype)
         else:
-            d0, d1, d2 = _C.dual_gemm_broadcast_forward(x, w1, w2, None)
+            d0, d1, d2 = _C.dual_gemm_broadcast_forward_infer(x, w1, w2, True, True)
         torch.cuda.synchronize()
 
     for name, t in (("d0", d0), ("d1", d1), ("d2", d2)):

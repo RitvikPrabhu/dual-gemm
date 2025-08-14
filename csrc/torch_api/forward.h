@@ -9,8 +9,8 @@ namespace torchapi {
 
 inline std::tuple<at::Tensor, at::Tensor, at::Tensor>
 dual_gemm_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
-                  const at::Tensor &w2_in, const bool kStoreD0,
-                  const bool kStoreD1,
+                  const at::Tensor &w2_in, bool kStoreD0,
+                  bool kStoreD1,
                   c10::optional<at::ScalarType> dtype_opt) {
   TORCH_CHECK(x_in.is_cuda() && w1_in.is_cuda() && w2_in.is_cuda(),
               "All tensors must be CUDA");
@@ -30,8 +30,7 @@ dual_gemm_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
   if (want == at::kHalf) {
     return run_dual_gemm_typed<cutlass::half_t>(x, w1, w2, kStoreD0, kStoreD1);
   } else if (want == at::kBFloat16) {
-    return run_dual_gemm_typed<cutlass::bfloat16_t>(x, w1, w2, kStoreD0,
-                                                    kStoreD1);
+    return run_dual_gemm_typed<cutlass::bfloat16_t>(x, w1, w2, kStoreD0, kStoreD1);
   } else {
     return run_dual_gemm_typed<float>(x, w1, w2, kStoreD0, kStoreD1);
   }
@@ -39,15 +38,16 @@ dual_gemm_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
 
 inline std::tuple<at::Tensor, at::Tensor, at::Tensor>
 dual_gemm_forward_infer(const at::Tensor &x_in, const at::Tensor &w1_in,
-                        const at::Tensor &w2_in, const bool kStoreD0,
-                        const bool kStoreD1) {
+                        const at::Tensor &w2_in, bool kStoreD0,
+                        bool kStoreD1) {
   return dual_gemm_forward(x_in, w1_in, w2_in, kStoreD0, kStoreD1,
                            c10::nullopt);
 }
 
 inline std::tuple<at::Tensor, at::Tensor, at::Tensor>
 dual_gemm_batched_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
-                          const at::Tensor &w2_in,
+                          const at::Tensor &w2_in, bool kStoreD0,
+                        bool kStoreD1,
                           c10::optional<at::ScalarType> dtype_opt) {
   TORCH_CHECK(x_in.is_cuda() && w1_in.is_cuda() && w2_in.is_cuda(),
               "All tensors must be CUDA");
@@ -63,11 +63,9 @@ dual_gemm_batched_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
               "expected x[B,M,K], w1[B,K,N], w2[B,K,N]");
 
   if (want == at::kHalf) {
-    return run_dual_gemm_batched_typed<cutlass::half_t>(x, w1, w2, kStoreD0,
-                                                        kStoreD1);
+    return run_dual_gemm_batched_typed<cutlass::half_t>(x, w1, w2, kStoreD0, kStoreD1);
   } else if (want == at::kBFloat16) {
-    return run_dual_gemm_batched_typed<cutlass::bfloat16_t>(x, w1, w2, kStoreD0,
-                                                            kStoreD1);
+    return run_dual_gemm_batched_typed<cutlass::bfloat16_t>(x, w1, w2, kStoreD0, kStoreD1);
   } else {
     return run_dual_gemm_batched_typed<float>(x, w1, w2, kStoreD0, kStoreD1);
   }
@@ -75,16 +73,16 @@ dual_gemm_batched_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
 
 inline std::tuple<at::Tensor, at::Tensor, at::Tensor>
 dual_gemm_batched_forward_infer(const at::Tensor &x_in, const at::Tensor &w1_in,
-                                const at::Tensor &w2_in, const bool kStoreD0,
-                                const bool kStoreD1) {
-  return dual_gemm_batched_forward(x_in, w1_in, w2_in, kStoreD0, KStoreD1,
+                                const at::Tensor &w2_in, bool kStoreD0,
+                                bool kStoreD1) {
+  return dual_gemm_batched_forward(x_in, w1_in, w2_in, kStoreD0, kStoreD1,
                                    c10::nullopt);
 }
 
 inline std::tuple<at::Tensor, at::Tensor, at::Tensor>
 dual_gemm_broadcast_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
-                            const at::Tensor &w2_in, const bool kStoreD0,
-                            const bool kStoreD1,
+                            const at::Tensor &w2_in, bool kStoreD0,
+                            bool kStoreD1,
                             c10::optional<at::ScalarType> dtype_opt) {
   TORCH_CHECK(x_in.is_cuda() && w1_in.is_cuda() && w2_in.is_cuda(),
               "All tensors must be CUDA");
@@ -100,8 +98,7 @@ dual_gemm_broadcast_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
               "expected x[B,M,K], w1[B,K,N], w2[K,N]");
 
   if (want == at::kHalf) {
-    return run_dual_gemm_broadcast_typed<cutlass::half_t>(x, w1, w2, kStoreD0,
-                                                          kStoreD1);
+    return run_dual_gemm_broadcast_typed<cutlass::half_t>(x, w1, w2, kStoreD0, kStoreD1);
   } else if (want == at::kBFloat16) {
     return run_dual_gemm_broadcast_typed<cutlass::bfloat16_t>(
         x, w1, w2, kStoreD0, kStoreD1);
@@ -113,11 +110,10 @@ dual_gemm_broadcast_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
 inline std::tuple<at::Tensor, at::Tensor, at::Tensor>
 dual_gemm_broadcast_forward_infer(const at::Tensor &x_in,
                                   const at::Tensor &w1_in,
-                                  const at::Tensor &w2_in, const bool kStoreD0,
-                                  const bool kStoreD1) {
+                                  const at::Tensor &w2_in, bool kStoreD0,
+                                  bool kStoreD1) {
   return dual_gemm_broadcast_forward(x_in, w1_in, w2_in, kStoreD0, kStoreD1,
                                      c10::nullopt);
 }
 
-} // namespace torchapi
-} // namespace dual_gemm
+}}
