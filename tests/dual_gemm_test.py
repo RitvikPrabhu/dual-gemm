@@ -11,6 +11,8 @@ try:
     torch.set_float32_matmul_precision("high")
 except Exception:
     pass
+
+# Ensure local package import works when running from repo root
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 _C = pytest.importorskip("fused_swiglu_ampere")
 
@@ -92,32 +94,37 @@ def test_dual_gemm_all_combinations(mode, storeD0, storeD1, dtype):
     x, w1, w2 = _make_inputs(mode, B, M, K, N, dtype, device)
     d0, d1, d2 = _call(mode, x, w1, w2, storeD0, storeD1)
 
+    # All outputs should be CUDA tensors of the requested dtype (even empty placeholders)
     assert d0.device.type == d1.device.type == d2.device.type == "cuda"
     assert d0.dtype == d1.dtype == d2.dtype == dtype
 
-    if mode == "single":
-        exp = (M, N)
+    exp = (M, N) if mode == "single" else (B, M, N)
+
+    # d2 is always produced
+    assert tuple(d2.shape) == exp
+
+    # d0 present only when storeD0; otherwise zero-length tensor
+    if storeD0:
+        assert tuple(d0.shape) == exp
     else:
-        exp = (B, M, N)
-    assert tuple(d0.shape) == exp and tuple(d1.shape) == exp and tuple(d2.shape) == exp
+        assert d0.numel() == 0 and d0.shape == (0,)
 
+    # d1 present only when storeD1; otherwise zero-length tensor
+    if storeD1:
+        assert tuple(d1.shape) == exp
+    else:
+        assert d1.numel() == 0 and d1.shape == (0,)
+
+    # Reference values
     d0_ref, d1_ref, d2_ref = _refs(mode, x, w1, w2, dtype)
-
     tol = _tol(dtype)
 
+    # d2 must match reference
     torch.testing.assert_close(d2, d2_ref, **tol)
 
+    # Only check d0/d1 values when they were requested
     if storeD0:
         torch.testing.assert_close(d0, d0_ref, **tol)
-    else:
-        assert d0.numel() == 0
-
     if storeD1:
         torch.testing.assert_close(d1, d1_ref, **tol)
-    else:
-        assert d1.numel() == 0
 
-    if not storeD0:
-        assert d0.is_cuda and d0.dtype == dtype
-    if not storeD1:
-        assert d1.is_cuda and d1.dtype == dtype
