@@ -1,7 +1,8 @@
 import argparse
+
 import torch
 import torch.nn.functional as F
-from torch.profiler import profile, ProfilerActivity
+from torch.profiler import ProfilerActivity, profile
 
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.manual_seed(0)
@@ -30,7 +31,7 @@ def parse_dtype(s: str) -> torch.dtype:
 def run_case_single(B: int, D: int, H: int, dtype: torch.dtype):
     device = "cuda"
 
-    x  = torch.randn(B, D, device=device, dtype=dtype)
+    x = torch.randn(B, D, device=device, dtype=dtype)
     w1 = torch.randn(D, H, device=device, dtype=dtype)
     w2 = torch.randn(D, H, device=device, dtype=dtype)
 
@@ -58,9 +59,15 @@ def run_case_single(B: int, D: int, H: int, dtype: torch.dtype):
     max_d2 = (d2.float() - d2_ref.float()).abs().max().item()
 
     eps = 1e-8
-    rel_d0 = (d0.float() - d0_ref.float()).abs().max() / d0_ref.float().abs().max().clamp_min(eps)
-    rel_d1 = (d1.float() - d1_ref.float()).abs().max() / d1_ref.float().abs().max().clamp_min(eps)
-    rel_d2 = (d2.float() - d2_ref.float()).abs().max() / d2_ref.float().abs().max().clamp_min(eps)
+    rel_d0 = (
+        d0.float() - d0_ref.float()
+    ).abs().max() / d0_ref.float().abs().max().clamp_min(eps)
+    rel_d1 = (
+        d1.float() - d1_ref.float()
+    ).abs().max() / d1_ref.float().abs().max().clamp_min(eps)
+    rel_d2 = (
+        d2.float() - d2_ref.float()
+    ).abs().max() / d2_ref.float().abs().max().clamp_min(eps)
     rel_d0 = rel_d0.item()
     rel_d1 = rel_d1.item()
     rel_d2 = rel_d2.item()
@@ -79,13 +86,14 @@ def run_case_single(B: int, D: int, H: int, dtype: torch.dtype):
     print(f"rel_max d2: {rel_d2}")
 
     print("\nCUDA profile:")
-    print(prof.key_averages().table(sort_by='cuda_time_total', row_limit=100))
+    print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=100))
+
 
 @torch.no_grad()
 def run_case_batched(B: int, D: int, H: int, dtype: torch.dtype):
     device = "cuda"
 
-    x  = torch.randn(B, B, D, device=device, dtype=dtype)
+    x = torch.randn(B, B, D, device=device, dtype=dtype)
     w1 = torch.randn(B, D, H, device=device, dtype=dtype)
     w2 = torch.randn(B, D, H, device=device, dtype=dtype)
 
@@ -103,8 +111,8 @@ def run_case_batched(B: int, D: int, H: int, dtype: torch.dtype):
             raise RuntimeError(f"{name} dtype {t.dtype} != expected {dtype}")
 
     xf = x.float()
-    d0_ref = torch.matmul(xf, w1.float()).to(dtype)  
-    d1_ref = torch.matmul(xf, w2.float()).to(dtype)  
+    d0_ref = torch.matmul(xf, w1.float()).to(dtype)
+    d1_ref = torch.matmul(xf, w2.float()).to(dtype)
     d2_ref = (F.silu(d0.float()) * d1.float()).to(dtype)
 
     max_d0 = (d0.float() - d0_ref.float()).abs().max().item()
@@ -112,9 +120,15 @@ def run_case_batched(B: int, D: int, H: int, dtype: torch.dtype):
     max_d2 = (d2.float() - d2_ref.float()).abs().max().item()
 
     eps = 1e-8
-    rel_d0 = (d0.float() - d0_ref.float()).abs().max() / d0_ref.float().abs().max().clamp_min(eps)
-    rel_d1 = (d1.float() - d1_ref.float()).abs().max() / d1_ref.float().abs().max().clamp_min(eps)
-    rel_d2 = (d2.float() - d2_ref.float()).abs().max() / d2_ref.float().abs().max().clamp_min(eps)
+    rel_d0 = (
+        d0.float() - d0_ref.float()
+    ).abs().max() / d0_ref.float().abs().max().clamp_min(eps)
+    rel_d1 = (
+        d1.float() - d1_ref.float()
+    ).abs().max() / d1_ref.float().abs().max().clamp_min(eps)
+    rel_d2 = (
+        d2.float() - d2_ref.float()
+    ).abs().max() / d2_ref.float().abs().max().clamp_min(eps)
     rel_d0, rel_d1, rel_d2 = rel_d0.item(), rel_d1.item(), rel_d2.item()
 
     dtype_label = {
@@ -131,14 +145,14 @@ def run_case_batched(B: int, D: int, H: int, dtype: torch.dtype):
     print(f"rel_max d2: {rel_d2}")
 
     print("\nCUDA profile:")
-    print(prof.key_averages().table(sort_by='cuda_time_total', row_limit=100))
+    print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=100))
 
 
 @torch.no_grad()
 def run_case_broadcast(B: int, D: int, H: int, dtype: torch.dtype):
     device = "cuda"
 
-    x  = torch.randn(B, B, D, device=device, dtype=dtype)
+    x = torch.randn(B, B, D, device=device, dtype=dtype)
     w1 = torch.randn(B, D, H, device=device, dtype=dtype)
     w2 = torch.randn(D, H, device=device, dtype=dtype)
 
@@ -156,8 +170,8 @@ def run_case_broadcast(B: int, D: int, H: int, dtype: torch.dtype):
             raise RuntimeError(f"{name} dtype {t.dtype} != expected {dtype}")
 
     xf = x.float()
-    d0_ref = torch.matmul(xf, w1.float()).to(dtype)  
-    d1_ref = torch.matmul(xf, w2.float()).to(dtype)  
+    d0_ref = torch.matmul(xf, w1.float()).to(dtype)
+    d1_ref = torch.matmul(xf, w2.float()).to(dtype)
     d2_ref = (F.silu(d0.float()) * d1.float()).to(dtype)
 
     max_d0 = (d0.float() - d0_ref.float()).abs().max().item()
@@ -165,9 +179,15 @@ def run_case_broadcast(B: int, D: int, H: int, dtype: torch.dtype):
     max_d2 = (d2.float() - d2_ref.float()).abs().max().item()
 
     eps = 1e-8
-    rel_d0 = (d0.float() - d0_ref.float()).abs().max() / d0_ref.float().abs().max().clamp_min(eps)
-    rel_d1 = (d1.float() - d1_ref.float()).abs().max() / d1_ref.float().abs().max().clamp_min(eps)
-    rel_d2 = (d2.float() - d2_ref.float()).abs().max() / d2_ref.float().abs().max().clamp_min(eps)
+    rel_d0 = (
+        d0.float() - d0_ref.float()
+    ).abs().max() / d0_ref.float().abs().max().clamp_min(eps)
+    rel_d1 = (
+        d1.float() - d1_ref.float()
+    ).abs().max() / d1_ref.float().abs().max().clamp_min(eps)
+    rel_d2 = (
+        d2.float() - d2_ref.float()
+    ).abs().max() / d2_ref.float().abs().max().clamp_min(eps)
     rel_d0, rel_d1, rel_d2 = rel_d0.item(), rel_d1.item(), rel_d2.item()
 
     dtype_label = {
@@ -184,7 +204,7 @@ def run_case_broadcast(B: int, D: int, H: int, dtype: torch.dtype):
     print(f"rel_max d2: {rel_d2}")
 
     print("\nCUDA profile:")
-    print(prof.key_averages().table(sort_by='cuda_time_total', row_limit=100))
+    print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=100))
 
 
 def main():
@@ -208,6 +228,6 @@ def main():
     print(f"\n=== B={args.B} D={args.D} H={args.H} dtype={dtype} Mode: Broadcast ===")
     run_case_broadcast(args.B, args.D, args.H, dtype)
 
+
 if __name__ == "__main__":
     main()
-

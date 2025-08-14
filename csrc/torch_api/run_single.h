@@ -7,7 +7,7 @@ namespace torchapi {
 template <typename Element, bool StoreD0, bool StoreD1>
 inline std::tuple<at::Tensor, at::Tensor, at::Tensor>
 run_dual_gemm_typed_impl(const at::Tensor &x_in, const at::Tensor &w1_in,
-                    const at::Tensor &w2_in) {
+                         const at::Tensor &w2_in) {
   using ElementOperandA = Element;
   using ElementOperandB = Element;
   using ElementOutput = Element;
@@ -63,8 +63,10 @@ run_dual_gemm_typed_impl(const at::Tensor &x_in, const at::Tensor &w1_in,
   auto B1_ptr = reinterpret_cast<Element const *>(b1.data_ptr<AT>());
   auto C0_ptr = reinterpret_cast<Element const *>(c0.data_ptr<AT>());
   auto C1_ptr = reinterpret_cast<Element const *>(c1.data_ptr<AT>());
-  auto D0_ptr = StoreD0 ? reinterpret_cast<Element*>(d0.data_ptr<AT>()) : nullptr;
-  auto D1_ptr = StoreD1 ? reinterpret_cast<Element*>(d1.data_ptr<AT>()) : nullptr;
+  auto D0_ptr =
+      StoreD0 ? reinterpret_cast<Element *>(d0.data_ptr<AT>()) : nullptr;
+  auto D1_ptr =
+      StoreD1 ? reinterpret_cast<Element *>(d1.data_ptr<AT>()) : nullptr;
   auto D2_ptr = reinterpret_cast<Element *>(d2.data_ptr<AT>());
 
   cutlass::TensorRef<Element const, RM> refA(A_ptr, RM::Stride(lda));
@@ -123,4 +125,5 @@ run_dual_gemm_typed(const at::Tensor &x_in, const at::Tensor &w1_in,
   }
 }
 
-}}
+} // namespace torchapi
+} // namespace dual_gemm
