@@ -10,11 +10,11 @@ if "TORCH_CUDA_ARCH_LIST" not in os.environ:
     os.environ["TORCH_CUDA_ARCH_LIST"] = "8.0;9.0"
 
 setup(
-    name="dual-gemm-cutlass",
+    name="fused-swiglu-ampere",
     version="0.0.1",
     ext_modules=[
         CUDAExtension(
-            name="dual_gemm",
+            name="fused_swiglu_ampere",
             sources=[str(root / "csrc" / "binding.cu")],  # use .cpp if that's your file
             include_dirs=[
                 str(root / "csrc" / "cutlass_dual"),

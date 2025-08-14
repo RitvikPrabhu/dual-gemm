@@ -1,12 +1,12 @@
-import sys, os
 import argparse
+import os
+import sys
 
 import torch
 import torch.nn.functional as F
 from torch.profiler import ProfilerActivity, profile
 
-
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.manual_seed(0)
 try:
@@ -14,7 +14,7 @@ try:
 except Exception:
     pass
 
-import dual_gemm as _C
+import fused_swiglu_ampere as _C
 
 
 def parse_dtype(s: str) -> torch.dtype:
