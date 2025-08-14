@@ -109,8 +109,13 @@ def test_dual_gemm_all_combinations(mode, storeD0, storeD1, dtype):
 
     if storeD0:
         torch.testing.assert_close(d0, d0_ref, **tol)
+    else:
+        assert d0.numel() == 0
+
     if storeD1:
         torch.testing.assert_close(d1, d1_ref, **tol)
+    else:
+        assert d1.numel() == 0
 
     if not storeD0:
         assert d0.is_cuda and d0.dtype == dtype
