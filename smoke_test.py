@@ -27,24 +27,18 @@ def parse_dtype(s: str) -> torch.dtype:
 
 
 @torch.no_grad()
-def run_case_single(B: int, D: int, H: int, dtype: torch.dtype, dispatch: str):
+def run_case_single(B: int, D: int, H: int, dtype: torch.dtype):
     device = "cuda"
 
     x  = torch.randn(B, D, device=device, dtype=dtype)
     w1 = torch.randn(D, H, device=device, dtype=dtype)
     w2 = torch.randn(D, H, device=device, dtype=dtype)
 
-    if dispatch == "explicit":
-        _ = _C.dual_gemm_forward(x, w1, w2, False, False, dtype)
-    else:
-        _ = _C.dual_gemm_forward_infer(x, w1, w2, False, False)
+    _ = _C.dual_gemm_forward(x, w1, w2, False, False)
     torch.cuda.synchronize()
 
     with profile(activities=[ProfilerActivity.CUDA]) as prof:
-        if dispatch == "explicit":
-            d0, d1, d2 = _C.dual_gemm_forward(x, w1, w2, True, True, dtype)
-        else:
-            d0, d1, d2 = _C.dual_gemm_forward_infer(x, w1, w2, True, True)
+        d0, d1, d2 = _C.dual_gemm_forward(x, w1, w2, True, True)
         torch.cuda.synchronize()
 
     for name, t in (("d0", d0), ("d1", d1), ("d2", d2)):
@@ -88,24 +82,18 @@ def run_case_single(B: int, D: int, H: int, dtype: torch.dtype, dispatch: str):
     print(prof.key_averages().table(sort_by='cuda_time_total', row_limit=100))
 
 @torch.no_grad()
-def run_case_batched(B: int, D: int, H: int, dtype: torch.dtype, dispatch: str):
+def run_case_batched(B: int, D: int, H: int, dtype: torch.dtype):
     device = "cuda"
 
     x  = torch.randn(B, B, D, device=device, dtype=dtype)
     w1 = torch.randn(B, D, H, device=device, dtype=dtype)
     w2 = torch.randn(B, D, H, device=device, dtype=dtype)
 
-    if dispatch == "explicit":
-        _ = _C.dual_gemm_batched_forward(x, w1, w2, False, False, dtype)
-    else:
-        _ = _C.dual_gemm_batched_forward_infer(x, w1, w2, False, False)
+    _ = _C.dual_gemm_batched_forward(x, w1, w2, False, False)
     torch.cuda.synchronize()
 
     with profile(activities=[ProfilerActivity.CUDA]) as prof:
-        if dispatch == "explicit":
-            d0, d1, d2 = _C.dual_gemm_batched_forward(x, w1, w2, True, True, dtype)
-        else:
-            d0, d1, d2 = _C.dual_gemm_batched_forward_infer(x, w1, w2, True, True)
+        d0, d1, d2 = _C.dual_gemm_batched_forward(x, w1, w2, True, True)
         torch.cuda.synchronize()
 
     for name, t in (("d0", d0), ("d1", d1), ("d2", d2)):
@@ -147,24 +135,18 @@ def run_case_batched(B: int, D: int, H: int, dtype: torch.dtype, dispatch: str):
 
 
 @torch.no_grad()
-def run_case_broadcast(B: int, D: int, H: int, dtype: torch.dtype, dispatch: str):
+def run_case_broadcast(B: int, D: int, H: int, dtype: torch.dtype):
     device = "cuda"
 
     x  = torch.randn(B, B, D, device=device, dtype=dtype)
     w1 = torch.randn(B, D, H, device=device, dtype=dtype)
     w2 = torch.randn(D, H, device=device, dtype=dtype)
 
-    if dispatch == "explicit":
-        _ = _C.dual_gemm_broadcast_forward(x, w1, w2, False, False, dtype)
-    else:
-        _ = _C.dual_gemm_broadcast_forward_infer(x, w1, w2, False, False)
+    _ = _C.dual_gemm_broadcast_forward(x, w1, w2, False, False)
     torch.cuda.synchronize()
 
     with profile(activities=[ProfilerActivity.CUDA]) as prof:
-        if dispatch == "explicit":
-            d0, d1, d2 = _C.dual_gemm_broadcast_forward(x, w1, w2, True, True, dtype)
-        else:
-            d0, d1, d2 = _C.dual_gemm_broadcast_forward_infer(x, w1, w2, True, True)
+        d0, d1, d2 = _C.dual_gemm_broadcast_forward(x, w1, w2, True, True)
         torch.cuda.synchronize()
 
     for name, t in (("d0", d0), ("d1", d1), ("d2", d2)):
@@ -211,23 +193,20 @@ def main():
     ap.add_argument("--D", type=int, default=4096)
     ap.add_argument("--H", type=int, default=11008)
     ap.add_argument("--dtype", type=str, default="fp16", help="fp16 | bf16 | fp32")
-    ap.add_argument("--dispatch", type=str, default="infer",
-                    choices=("infer", "explicit"),
-                    help="infer: extension infers from x; explicit: pass dtype to extension")
     args = ap.parse_args()
 
     if not torch.cuda.is_available():
         raise SystemExit("CUDA is required")
 
     dtype = parse_dtype(args.dtype)
-    print(f"\n=== B={args.B} D={args.D} H={args.H} dtype={dtype} dispatch={args.dispatch} Mode: Single ===")
-    run_case_single(args.B, args.D, args.H, dtype, args.dispatch)
+    print(f"\n=== B={args.B} D={args.D} H={args.H} dtype={dtype} Mode: Single ===")
+    run_case_single(args.B, args.D, args.H, dtype)
 
-    print(f"\n=== B={args.B} D={args.D} H={args.H} dtype={dtype} dispatch={args.dispatch} Mode: Batched ===")
-    run_case_batched(args.B, args.D, args.H, dtype, args.dispatch)
+    print(f"\n=== B={args.B} D={args.D} H={args.H} dtype={dtype} Mode: Batched ===")
+    run_case_batched(args.B, args.D, args.H, dtype)
 
-    print(f"\n=== B={args.B} D={args.D} H={args.H} dtype={dtype} dispatch={args.dispatch} Mode: Broadcast ===")
-    run_case_broadcast(args.B, args.D, args.H, dtype, args.dispatch)
+    print(f"\n=== B={args.B} D={args.D} H={args.H} dtype={dtype} Mode: Broadcast ===")
+    run_case_broadcast(args.B, args.D, args.H, dtype)
 
 if __name__ == "__main__":
     main()

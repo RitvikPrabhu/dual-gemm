@@ -8,7 +8,7 @@ namespace dual_gemm {
 namespace torchapi {
 
 inline std::tuple<at::Tensor, at::Tensor, at::Tensor>
-dual_gemm_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
+dual_gemm_forward_expl(const at::Tensor &x_in, const at::Tensor &w1_in,
                   const at::Tensor &w2_in, bool kStoreD0,
                   bool kStoreD1,
                   c10::optional<at::ScalarType> dtype_opt) {
@@ -37,15 +37,15 @@ dual_gemm_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
 }
 
 inline std::tuple<at::Tensor, at::Tensor, at::Tensor>
-dual_gemm_forward_infer(const at::Tensor &x_in, const at::Tensor &w1_in,
+dual_gemm_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
                         const at::Tensor &w2_in, bool kStoreD0,
                         bool kStoreD1) {
-  return dual_gemm_forward(x_in, w1_in, w2_in, kStoreD0, kStoreD1,
+  return dual_gemm_forward_expl(x_in, w1_in, w2_in, kStoreD0, kStoreD1,
                            c10::nullopt);
 }
 
 inline std::tuple<at::Tensor, at::Tensor, at::Tensor>
-dual_gemm_batched_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
+dual_gemm_batched_forward_expl(const at::Tensor &x_in, const at::Tensor &w1_in,
                           const at::Tensor &w2_in, bool kStoreD0,
                         bool kStoreD1,
                           c10::optional<at::ScalarType> dtype_opt) {
@@ -72,15 +72,15 @@ dual_gemm_batched_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
 }
 
 inline std::tuple<at::Tensor, at::Tensor, at::Tensor>
-dual_gemm_batched_forward_infer(const at::Tensor &x_in, const at::Tensor &w1_in,
+dual_gemm_batched_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
                                 const at::Tensor &w2_in, bool kStoreD0,
                                 bool kStoreD1) {
-  return dual_gemm_batched_forward(x_in, w1_in, w2_in, kStoreD0, kStoreD1,
+  return dual_gemm_batched_forward_expl(x_in, w1_in, w2_in, kStoreD0, kStoreD1,
                                    c10::nullopt);
 }
 
 inline std::tuple<at::Tensor, at::Tensor, at::Tensor>
-dual_gemm_broadcast_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
+dual_gemm_broadcast_forward_expl(const at::Tensor &x_in, const at::Tensor &w1_in,
                             const at::Tensor &w2_in, bool kStoreD0,
                             bool kStoreD1,
                             c10::optional<at::ScalarType> dtype_opt) {
@@ -108,11 +108,11 @@ dual_gemm_broadcast_forward(const at::Tensor &x_in, const at::Tensor &w1_in,
 }
 
 inline std::tuple<at::Tensor, at::Tensor, at::Tensor>
-dual_gemm_broadcast_forward_infer(const at::Tensor &x_in,
+dual_gemm_broadcast_forward(const at::Tensor &x_in,
                                   const at::Tensor &w1_in,
                                   const at::Tensor &w2_in, bool kStoreD0,
                                   bool kStoreD1) {
-  return dual_gemm_broadcast_forward(x_in, w1_in, w2_in, kStoreD0, kStoreD1,
+  return dual_gemm_broadcast_forward_expl(x_in, w1_in, w2_in, kStoreD0, kStoreD1,
                                      c10::nullopt);
 }
 
