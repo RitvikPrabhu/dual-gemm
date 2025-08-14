@@ -46,17 +46,19 @@ run_dual_gemm_typed_impl(const at::Tensor &x_in, const at::Tensor &w1_in,
   const int64_t K = x.size(1);
   const int64_t N = b0.size(1);
 
-  at::Tensor d0 = at::empty({M, N}, x.options());
-  at::Tensor d1 = at::empty({M, N}, x.options());
+  at::Tensor d0 =
+      StoreD0 ? at::empty({M, N}, x.options()) : at::empty({0}, x.options());
+  at::Tensor d1 =
+      StoreD1 ? at::empty({M, N}, x.options()) : at::empty({0}, x.options());
   at::Tensor d2 = at::empty({M, N}, x.options());
-  at::Tensor c0 = at::empty_like(d0);
-  at::Tensor c1 = at::empty_like(d1);
+  at::Tensor c0 = at::empty({M, N}, x.options());
+  at::Tensor c1 = at::empty({M, N}, x.options());
 
-  int lda = static_cast<int>(x.stride(0));
-  int ldb0 = static_cast<int>(b0.stride(0));
-  int ldb1 = static_cast<int>(b1.stride(0));
-  int ldc = static_cast<int>(d0.stride(0));
-  int ldd = ldc;
+  int lda = int(K);
+  int ldb0 = int(N);
+  int ldb1 = int(N);
+  int ldc = int(N);
+  int ldd = int(N);
 
   auto A_ptr = reinterpret_cast<Element const *>(x.data_ptr<AT>());
   auto B0_ptr = reinterpret_cast<Element const *>(b0.data_ptr<AT>());

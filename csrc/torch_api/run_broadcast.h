@@ -49,23 +49,25 @@ run_dual_gemm_broadcast_typed_impl(const at::Tensor &x_in,
   const int64_t K = x.size(2);
   const int64_t N = b0.size(2);
 
-  at::Tensor d0 = at::empty({B, M, N}, x.options());
-  at::Tensor d1 = at::empty({B, M, N}, x.options());
+  at::Tensor d0 =
+      StoreD0 ? at::empty({B, M, N}, x.options()) : at::empty({0}, x.options());
+  at::Tensor d1 =
+      StoreD1 ? at::empty({B, M, N}, x.options()) : at::empty({0}, x.options());
   at::Tensor d2 = at::empty({B, M, N}, x.options());
   at::Tensor c0 = at::empty({B, M, N}, x.options());
   at::Tensor c1 = at::empty({B, M, N}, x.options());
 
-  int lda = static_cast<int>(x.stride(1));
-  int ldb0 = static_cast<int>(b0.stride(1));
-  int ldb1 = static_cast<int>(b1.stride(0));
-  int ldc = static_cast<int>(d0.stride(1));
-  int ldd = ldc;
+  int lda = int(K);
+  int ldb0 = int(N);
+  int ldb1 = int(N);
+  int ldc = int(N);
+  int ldd = int(N);
 
-  int64_t bsA = x.stride(0);
-  int64_t bsB0 = b0.stride(0);
+  int64_t bsA = M * K;
+  int64_t bsB0 = K * N;
   int64_t bsB1 = 0;
-  int64_t bsC = d0.stride(0);
-  int64_t bsD = d0.stride(0);
+  int64_t bsC = M * N;
+  int64_t bsD = M * N;
 
   auto A_ptr = reinterpret_cast<Element const *>(x.data_ptr<AT>());
   auto B0_ptr = reinterpret_cast<Element const *>(b0.data_ptr<AT>());
