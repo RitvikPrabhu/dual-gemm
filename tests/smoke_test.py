@@ -1,8 +1,11 @@
+import sys, os
 import argparse
 import torch
 import torch.nn.functional as F
 from torch.profiler import profile, ProfilerActivity
 
+
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 torch.backends.cuda.matmul.allow_tf32 = True
 torch.manual_seed(0)
 try:
