@@ -19,10 +19,10 @@ plt.rcParams.update({
 warnings.filterwarnings("ignore", message="invalid value encountered")
 
 OUTDIR   = "bench_out"
-PAIRS    = [(1024, 4096), (2048, 8192)]
+PAIRS    = [(2114, 5637),(4096, 14336), (6144, 16384), (8192, 28672), (12288, 32768), (16384, 53248), (256000, 682666)]
 DTYPES   = ["fp16", "bf16", "fp32"]
 SEQLENS  = [2048]
-BATCHES  = [1, 2, 4, 8, 16, 32]
+BATCHES  = [2, 4, 8]
 IMPLS    = ["eager", "fused_single", "fused_batched", "fused_broadcast"]
 TF32     = True
 DEVICE   = "cuda" if torch.cuda.is_available() else "cpu"
