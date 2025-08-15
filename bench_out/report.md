@@ -1,10 +1,63 @@
-# FFN SwiGLU: Practitioner Guidance (Simple)
+# FFN SwiGLU: Paper Notes
 
-- **bf16** best throughput: `eager` at B=4, H=2048, Hff=8192, L=2048 → 574.04 TF/s (1.437 ms).
-- **fp16** best throughput: `eager` at B=4, H=2048, Hff=8192, L=2048 → 573.82 TF/s (1.437 ms).
-- **fp32** best throughput: `eager` at B=4, H=2048, Hff=8192, L=2048 → 276.98 TF/s (2.977 ms).
+- **bf16** best throughput: `eager` at B=4, H=2048, Hff=8192, L=2048 → 575.60 TF/s (1.433 ms).
+- **fp16** best throughput: `eager` at B=4, H=2048, Hff=8192, L=2048 → 566.94 TF/s (1.455 ms).
+- **fp32** best throughput: `eager` at B=4, H=2048, Hff=8192, L=2048 → 279.00 TF/s (2.956 ms).
 
-## Batched vs Broadcast vs Single
-- `fused_single` uses the single-matrix fused kernel; for B>1 we loop per-sample (for comparison only).
-- `fused_batched` expects distinct weights per sample; fastest when B is moderate/large.
-- `fused_broadcast` shares one branch across the batch; best when W3 is shared.
+## Crossover (where fused beats eager)
+Rows show the smallest H (among your pairs) for which **any fused** impl is ≥ eager speed for each (dtype, B, L).
+dtype  B    L H_threshold       impl_best speedup
+ bf16  1  128        1024    fused_single   1.43×
+ bf16  1  512        1024    fused_single   1.18×
+ bf16  1 2048           –               –       –
+ bf16  2  128        1024 fused_broadcast   1.52×
+ bf16  2  512        1024 fused_broadcast   1.10×
+ bf16  2 2048        1024 fused_broadcast   1.03×
+ bf16  4  128        1024 fused_broadcast   1.56×
+ bf16  4  512        1024 fused_broadcast   1.04×
+ bf16  4 2048           –               –       –
+ bf16  8  128        1024 fused_broadcast   1.63×
+ bf16  8  512        1024 fused_broadcast   1.02×
+ bf16  8 2048           –               –       –
+ bf16 16  128        1024 fused_broadcast   1.61×
+ bf16 16  512           –               –       –
+ bf16 16 2048           –               –       –
+ bf16 32  128        1024 fused_broadcast   1.64×
+ bf16 32  512           –               –       –
+ bf16 32 2048           –               –       –
+ fp16  1  128        1024    fused_single   1.48×
+ fp16  1  512        1024    fused_single   1.17×
+ fp16  1 2048           –               –       –
+ fp16  2  128        1024 fused_broadcast   1.50×
+ fp16  2  512        1024 fused_broadcast   1.11×
+ fp16  2 2048        1024   fused_batched   1.02×
+ fp16  4  128        1024 fused_broadcast   1.57×
+ fp16  4  512        1024 fused_broadcast   1.04×
+ fp16  4 2048           –               –       –
+ fp16  8  128        1024 fused_broadcast   1.62×
+ fp16  8  512        1024 fused_broadcast   1.02×
+ fp16  8 2048           –               –       –
+ fp16 16  128        1024 fused_broadcast   1.60×
+ fp16 16  512           –               –       –
+ fp16 16 2048           –               –       –
+ fp16 32  128        1024 fused_broadcast   1.64×
+ fp16 32  512           –               –       –
+ fp16 32 2048           –               –       –
+ fp32  1  128        1024    fused_single   1.08×
+ fp32  1  512        1024    fused_single   1.01×
+ fp32  1 2048           –               –       –
+ fp32  2  128        1024 fused_broadcast   1.69×
+ fp32  2  512        1024 fused_broadcast   1.18×
+ fp32  2 2048           –               –       –
+ fp32  4  128        1024 fused_broadcast   1.74×
+ fp32  4  512        1024 fused_broadcast   1.24×
+ fp32  4 2048           –               –       –
+ fp32  8  128        1024 fused_broadcast   1.59×
+ fp32  8  512           –               –       –
+ fp32  8 2048           –               –       –
+ fp32 16  128        1024 fused_broadcast   1.63×
+ fp32 16  512           –               –       –
+ fp32 16 2048           –               –       –
+ fp32 32  128        1024 fused_broadcast   1.55×
+ fp32 32  512           –               –       –
+ fp32 32 2048           –               –       –
