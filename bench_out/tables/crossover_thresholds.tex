@@ -1,60 +1,24 @@
-% Auto-generated tableegin{table}[h] \centering\begin{tabular}{lrrlll}
+% Auto-generated tableegin{table}[h]\centering\begin{tabular}{lrrlll}
 \toprule
 dtype & B & L & H_threshold & impl_best & speedup \\
 \midrule
-bf16 & 1 & 128 & 1024 & fused_single & 1.40× \\
-bf16 & 1 & 512 & 1024 & fused_single & 1.16× \\
 bf16 & 1 & 2048 & – & – & – \\
-bf16 & 2 & 128 & 1024 & fused_broadcast & 1.44× \\
-bf16 & 2 & 512 & 1024 & fused_broadcast & 1.10× \\
-bf16 & 2 & 2048 & 1024 & fused_batched & 1.03× \\
-bf16 & 4 & 128 & 1024 & fused_broadcast & 1.54× \\
-bf16 & 4 & 512 & 1024 & fused_broadcast & 1.04× \\
+bf16 & 2 & 2048 & 1024 & fused_batched & 1.00× \\
 bf16 & 4 & 2048 & – & – & – \\
-bf16 & 8 & 128 & 1024 & fused_broadcast & 1.61× \\
-bf16 & 8 & 512 & 1024 & fused_broadcast & 1.01× \\
 bf16 & 8 & 2048 & – & – & – \\
-bf16 & 16 & 128 & 1024 & fused_broadcast & 1.61× \\
-bf16 & 16 & 512 & – & – & – \\
 bf16 & 16 & 2048 & – & – & – \\
-bf16 & 32 & 128 & 1024 & fused_broadcast & 1.65× \\
-bf16 & 32 & 512 & – & – & – \\
 bf16 & 32 & 2048 & – & – & – \\
-fp16 & 1 & 128 & 1024 & fused_single & 1.48× \\
-fp16 & 1 & 512 & 1024 & fused_single & 1.13× \\
 fp16 & 1 & 2048 & – & – & – \\
-fp16 & 2 & 128 & 1024 & fused_broadcast & 1.46× \\
-fp16 & 2 & 512 & 1024 & fused_broadcast & 1.11× \\
-fp16 & 2 & 2048 & 1024 & fused_broadcast & 1.01× \\
-fp16 & 4 & 128 & 1024 & fused_broadcast & 1.55× \\
-fp16 & 4 & 512 & 1024 & fused_broadcast & 1.04× \\
+fp16 & 2 & 2048 & 1024 & fused_broadcast & 1.03× \\
 fp16 & 4 & 2048 & – & – & – \\
-fp16 & 8 & 128 & 1024 & fused_broadcast & 1.63× \\
-fp16 & 8 & 512 & 1024 & fused_broadcast & 1.02× \\
 fp16 & 8 & 2048 & – & – & – \\
-fp16 & 16 & 128 & 1024 & fused_broadcast & 1.61× \\
-fp16 & 16 & 512 & – & – & – \\
 fp16 & 16 & 2048 & – & – & – \\
-fp16 & 32 & 128 & 1024 & fused_broadcast & 1.64× \\
-fp16 & 32 & 512 & – & – & – \\
 fp16 & 32 & 2048 & – & – & – \\
-fp32 & 1 & 128 & 1024 & fused_single & 1.08× \\
-fp32 & 1 & 512 & 1024 & fused_single & 1.07× \\
 fp32 & 1 & 2048 & – & – & – \\
-fp32 & 2 & 128 & 1024 & fused_broadcast & 1.86× \\
-fp32 & 2 & 512 & 1024 & fused_broadcast & 1.17× \\
 fp32 & 2 & 2048 & – & – & – \\
-fp32 & 4 & 128 & 1024 & fused_broadcast & 1.67× \\
-fp32 & 4 & 512 & 1024 & fused_broadcast & 1.25× \\
 fp32 & 4 & 2048 & – & – & – \\
-fp32 & 8 & 128 & 1024 & fused_broadcast & 1.54× \\
-fp32 & 8 & 512 & – & – & – \\
 fp32 & 8 & 2048 & – & – & – \\
-fp32 & 16 & 128 & 1024 & fused_broadcast & 1.61× \\
-fp32 & 16 & 512 & – & – & – \\
 fp32 & 16 & 2048 & – & – & – \\
-fp32 & 32 & 128 & 1024 & fused_broadcast & 1.56× \\
-fp32 & 32 & 512 & – & – & – \\
 fp32 & 32 & 2048 & – & – & – \\
 \bottomrule
 \end{tabular}
